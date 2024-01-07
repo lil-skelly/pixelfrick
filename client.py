@@ -94,7 +94,7 @@ class PixelflutClient(Protocol):
     def draw_image(self, image_path: str):
         original_image = Image.open(image_path)
         original_image.thumbnail(self.size)
-        width, _ = original_image.size
+        
         chunks = self.make_chunks(original_image)
         with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
             
