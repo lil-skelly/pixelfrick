@@ -1,8 +1,18 @@
 import socket
+import argparse
 from concurrent.futures import ThreadPoolExecutor
-from PIL import Image
+from PIL import Image, ImageDraw
+
 # Protocol is a base class that sets a layout for the Pixelflut protocol
 # Client is a class that wraps around the Protocol class and implements its features via socketrs.
+parser = argparse.ArgumentParser(description="Fast and extensible Pixelflut Client")
+
+parser.add_argument("--image", "-ig", required=True, help="Path to the image to draw")
+parser.add_argument("--host", "-H", required=True, type=str, default="pixelflut.uwu.industries", help="Pixelflut host to connect to")
+parser.add_argument("--port", "-P", required=True, type=int, default=1234, help="Pixelflut port")
+parser.add_argument("--threads", "-T", type=int, default=4, help="Number of threads to use. (Refer to README.md for guidance)")
+parser.add_argument("--background", "-bg", help="Wipe the current canvas by setting a background of color R:G:B")
+parser.add_argument("--buffer", "-bf", type=int, default=256, help="Data buffer to use (default: 256)")
 
 class Protocol:
     def draw_pixel(self, x, y, r, g, b, a):
@@ -52,6 +62,10 @@ class PixelflutClient(Protocol):
         self.sock.send(pixel.encode())
 
     def s_draw_rect(self, *args):
+        """
+        Draws a rectangle
+        [DEPRECATED] Use PixelflutClient.draw_image with a PIL image for performance.
+        """
         print(f"[*] Drawing RECTANGLE: {args[0], args[1]}, {args[2], args[3]}") 
         pixels = super().draw_rect(*args)
         for pixel in pixels:
@@ -81,35 +95,41 @@ class PixelflutClient(Protocol):
 
     def process_chunk(self, image_chunk, count):
         """Draw each pixel from a chunk to the Pixelflut server"""
-        print(f"[*] Processing chunk: {repr(image_chunk)}")
-        print(count)
         width, height = image_chunk.size
-        offset = count * width
         for y in range(height):
             for x in range(width):
                 r,g,b = image_chunk.getpixel((x,y))
-                self.s_draw_pixel(offset + x,y,r,g,b,255)
+                self.s_draw_pixel(x + width * count,y,r,g,b,255)
 
 
-    def draw_image(self, image_path: str):
-        original_image = Image.open(image_path)
-        original_image.thumbnail(self.size)
-        
-        chunks = self.make_chunks(original_image)
+    def draw_image(self, image):
+        if isinstance(image, Image.Image):
+            chunks = self.make_chunks(image)
+        elif isinstance(image, str):
+            original_image = Image.open(image)
+            original_image.thumbnail(self.size)
+            chunks = self.make_chunks(original_image)
         with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
-            
             for i, chunk in enumerate(chunks):
-                future = executor.submit(self.process_chunk, chunk, i)
+                future = executor.submit(self.process_chunk, chunk,i)
                 future.result()
 
+def apply_background(client: PixelflutClient, r,g,b):
+    background = Image.new("RGB", client.size, (r,g,b))
+    client.draw_image(background)
                 
 def main():
-    host = "pixelflut.uwu.industries"
-    port = 1234
-    thread_count = 4
-    client = PixelflutClient((host, port))
-    print(f"[INFORMATION]\nHOST: {host}\nPORT: {port}\nTHREAD COUNT: {thread_count}\nCANVAS SIZE: {client.size}")
+    args = parser.parse_args()
+    HOST = args.host 
+    PORT = args.port
+    THREADS = args.threads
+    BUFFER = args.buffer
+    client = PixelflutClient((HOST, PORT), BUFFER, THREADS)
+    print(f"[INFORMATION]\nHOST: {HOST}\nPORT: {PORT}\nTHREAD COUNT: {client.thread_count}\nCANVAS SIZE: {client.size}")
     #client.s_draw_rect(0,0,1280,720,255,255,255,255)
-    client.draw_image("../Pictures/wallpaper_nord.png")
+    if args.background:
+        r,g,b = args.background.split(":")
+        apply_background(client, int(r), int(g), int(b))
+    client.draw_image(args.image)
 if __name__ == "__main__":
     main()
