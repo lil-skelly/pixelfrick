@@ -79,16 +79,16 @@ class PixelflutClient(Protocol):
         return image_chunks
     
 
-    def process_chunk(self, image_chunk):
+    def process_chunk(self, image_chunk, count):
         """Draw each pixel from a chunk to the Pixelflut server"""
         print(f"[*] Processing chunk: {repr(image_chunk)}")
         print(count)
         width, height = image_chunk.size
-        offset = 0#* width
+        offset = count * width
         for y in range(height):
             for x in range(width):
                 r,g,b = image_chunk.getpixel((x,y))
-                self.s_draw_pixel(offset + x,offset - y,r,g,b,255)
+                self.s_draw_pixel(offset + x,y,r,g,b,255)
 
 
     def draw_image(self, image_path: str):
@@ -97,8 +97,9 @@ class PixelflutClient(Protocol):
         width, _ = original_image.size
         chunks = self.make_chunks(original_image)
         with ThreadPoolExecutor(max_workers=self.thread_count) as executor:
-            for chunk in chunks:
-                future = executor.submit(self.process_chunk, chunk, count)
+            
+            for i, chunk in enumerate(chunks):
+                future = executor.submit(self.process_chunk, chunk, i)
                 future.result()
 
                 
