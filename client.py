@@ -8,8 +8,8 @@ from PIL import Image, ImageDraw
 parser = argparse.ArgumentParser(description="Fast and extensible Pixelflut Client")
 
 parser.add_argument("--image", "-ig", required=True, help="Path to the image to draw")
-parser.add_argument("--host", "-H", required=True, type=str, default="pixelflut.uwu.industries", help="Pixelflut host to connect to")
-parser.add_argument("--port", "-P", required=True, type=int, default=1234, help="Pixelflut port")
+parser.add_argument("--host", "-H", type=str, default="pixelflut.uwu.industries", help="Pixelflut host to connect to")
+parser.add_argument("--port", "-P", type=int, default=1234, help="Pixelflut port")
 parser.add_argument("--threads", "-T", type=int, default=4, help="Number of threads to use. (Refer to README.md for guidance)")
 parser.add_argument("--background", "-bg", help="Wipe the current canvas by setting a background of color R:G:B")
 parser.add_argument("--buffer", "-bf", type=int, default=256, help="Data buffer to use (default: 256)")
@@ -116,8 +116,11 @@ class PixelflutClient(Protocol):
 
 def apply_background(client: PixelflutClient, r,g,b):
     background = Image.new("RGB", client.size, (r,g,b))
+    print(f"[*] Applying background {r,g,b}.")
     client.draw_image(background)
-                
+    print("[*] Done.")
+
+
 def main():
     args = parser.parse_args()
     HOST = args.host 
@@ -131,5 +134,7 @@ def main():
         r,g,b = args.background.split(":")
         apply_background(client, int(r), int(g), int(b))
     client.draw_image(args.image)
+
+
 if __name__ == "__main__":
     main()
